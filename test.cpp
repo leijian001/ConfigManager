@@ -15,24 +15,24 @@ int main(int argc, char *argv[])
     std::list<int>     l   = {111, 222, 333};
 
     ConfigManager manager;
-    manager.register_item("A", &a, 2);
-    manager.register_item("B", &b, 3);
-    manager.register_item("S", &s, "World");
-    manager.register_item("Arr", &arr);
-    manager.register_item("V", &v, {2, 3, 4});
-    manager.register_item("L", &l);
+    manager.Register("A", &a, 2);
+    manager.Register("B", &b, 3);
+    manager.Register("S", &s, "World");
+    manager.Register("Arr", &arr);
+    manager.Register("V", &v, {2, 3, 4});
+    manager.Register("L", &l);
 
     ConfigManager r;
     int e = 10;
     float f = 12;
     std::string ss = "First";
     std::vector<float> vv = {7, 8, 9};
-    r.register_item("AA", &e, 11);
-    r.register_item("BB", &f, 13);
-    r.register_item("SS", &ss, "Second");
-    r.register_item("VV", &vv, {17, 18, 19});
+    r.Register("AA", &e, 11);
+    r.Register("BB", &f, 13);
+    r.Register("SS", &ss, "Second");
+    r.Register("VV", &vv, {17, 18, 19});
 
-    manager.register_item("R", r);
+    manager.Register("R", r);
 
     std::cout << manager.dumpJson().dump() << std::endl;
 

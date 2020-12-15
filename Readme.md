@@ -7,5 +7,4 @@
 4. 支持递归形式
 
 ## 注意
-1. 由于采用了 std::any, 所以需要 C++17 或以上版本的编译器
-2. 依赖于 [nlohmann json](https://github.com/nlohmann/json) 库
+1. 依赖于 [nlohmann json](https://github.com/nlohmann/json) 库

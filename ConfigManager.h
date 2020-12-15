@@ -1,8 +1,7 @@
-#ifndef __CONFIGMANAGER_H__
-#define __CONFIGMANAGER_H__
+#ifndef CONFIGMANAGER_H
+#define CONFIGMANAGER_H
 
 #include <string>
-#include <any>
 #include <map>
 #include <functional>
 
@@ -10,99 +9,94 @@
 
 class ConfigManager
 {
-private:
-    using Variant = std::any;
-    using VariantMap = std::map<std::string, Variant>;
+public:
+    using Json = nlohmann::json;
 
-    ConfigManager(const ConfigManager&) = delete;
+private:
+    struct Serializer
+    {
+        std::function<void (Json &json)> ToJson;
+        std::function<void (const Json &json)> FromJson;
+    };
+
+    ConfigManager(const ConfigManager&) = default;
     ConfigManager(const ConfigManager&&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
 public:
     ConfigManager() {}
 
-    using Json = nlohmann::json;
-    using JsonVal = Json::value_type;
-
     void loadJson(const Json &json)
     {
-        _loadJson(ParamMap, json, DefaultMap);
+        _loadJson(Params, json);
     }
     Json dumpJson()
     {
-        return _dumpJson(ParamMap);
+        return _dumpJson(Params);
     }
 
 private:
-    void _loadJson(VariantMap &map, const Json &json, VariantMap &dMap);
-    Json _dumpJson(const VariantMap &map);
-
-public:
-    void register_item(const std::string &name, ConfigManager &param)
+    Json _dumpJson(const std::map<std::string, Serializer> &map)
     {
-        ParamMap[name]   = param.ParamMap;
-        DefaultMap[name] = param.DefaultMap;
-
-        const std::string type = ParamMap[name].type().name();
-        if (VariantFromJson.find(type) == VariantFromJson.end())
+        Json json;
+        for(const auto &it: map)
         {
-            VariantFromJson[type] = [this](Variant &to, bool exist, const JsonVal &from, const Variant &defdefaultVal)
-            {
-                auto v = std::any_cast<VariantMap>(to);
-                auto d = std::any_cast<VariantMap>(defdefaultVal);
-                _loadJson(v, from, d);
-            };
+            it.second.ToJson(json);
         }
-        if (VariantToJson.find(type) == VariantToJson.end())
+        return json;
+    }
+    void _loadJson(const std::map<std::string, Serializer> &map, const Json &json)
+    {
+        for(auto &it: map)
         {
-            VariantToJson[type] = [this](Json &json, const std::string &key, const Variant &val)
-            {
-                json[key] = _dumpJson(std::any_cast<VariantMap>(val));
-            };
+            it.second.FromJson(json);
         }
     }
 
-    template<typename T>
-    void register_item(const std::string &name, T *param, T defaultVal)
+public:
+    void Register(const std::string &name, ConfigManager &config)
     {
-        ParamMap[name]   = param;
-        DefaultMap[name] = defaultVal;
+        Serializer serializer;
+        serializer.ToJson = [this, name, config](Json &json)
+        {
+            json[name] = _dumpJson(config.Params);
+        };
+        serializer.FromJson = [this, name, config](const Json &json)
+        {
+            _loadJson(config.Params, json);
+        };
+        Params[name] = serializer;
+    }
 
-        const std::string type = ParamMap[name].type().name();
-        if (VariantFromJson.find(type) == VariantFromJson.end())
-        {   // 不存在
-            VariantFromJson[type] = [](Variant &to, bool exist, const JsonVal &from, const Variant &defaultVal)
-            {
-                *std::any_cast<T*>(to) = exist? from.get<T>() : std::any_cast<T>(defaultVal);
-            };
-        }
-        if (VariantToJson.find(type) == VariantToJson.end())
-        {   // 不存在
-            VariantToJson[type] = [](Json &json, const std::string &key, const Variant &val)
-            {
-                json[key] = *std::any_cast<T*>(val);
-            };
-        }
+    template<typename T>
+    void Register(const std::string &name, T *param, T defaultVal)
+    {
+        Serializer serializer;
+        serializer.ToJson = [name, param](Json &json)
+        {
+            json[name] = *param;
+        };
+        serializer.FromJson = [name, param, defaultVal](const Json &json)
+        {
+            *param = json.contains(name)? json[name].get<T>() : defaultVal;
+        };
+        Params[name] = serializer;
     }
 
     template<typename T, typename _>
-    void register_item(const std::string &name, T *param, _ defaultVal)
+    void Register(const std::string &name, T *param, _ defaultVal)
     {
-        register_item<T>(name, param, T(defaultVal));
+        Register<T>(name, param, T(defaultVal));
     }
 
     template<typename T>
-    void register_item(const std::string &name, T *param)
+    void Register(const std::string &name, T *param)
     {
-        register_item<T>(name, param, T());
-    } 
+        Register<T>(name, param, T());
+    }
 
 private:
-    VariantMap ParamMap;
-    VariantMap DefaultMap;
-
-    static std::map<std::string, std::function<void (Variant &to, bool exist, const JsonVal &from, const Variant &defaultVal)>> VariantFromJson;
-    static std::map<std::string, std::function<void (Json &json, const std::string &key, const Variant &val)>> VariantToJson;
+    std::map<std::string, Serializer> Params;
 };
 
 #endif
